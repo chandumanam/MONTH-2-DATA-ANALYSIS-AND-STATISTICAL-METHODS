@@ -1,0 +1,78 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load dataset
+df = pd.read_csv("dataset.csv")
+
+print("🔹 First 5 Rows of Dataset:")
+print(df.head(), "\n")
+
+print("🔹 Dataset Info:")
+print(df.info(), "\n")
+
+print("🔹 Summary Statistics:")
+print(df.describe(include="all"), "\n")
+
+# 2. Missing & Duplicate Values
+
+print("🔹 Missing Values Count:")
+print(df.isnull().sum(), "\n")
+
+print("🔹 Duplicate Rows Count:")
+print(df.duplicated().sum(), "\n")
+
+# 3. Correlation Analysis
+
+corr = df.corr(numeric_only=True)
+
+plt.figure(figsize=(8,6))
+sns.heatmap(corr, annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Heatmap")
+plt.show()
+
+# 4. Distribution of a Numerical Column
+
+numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
+
+if len(numeric_cols) > 0:
+    col = numeric_cols[0]   # Pick first numeric column
+    plt.figure(figsize=(6,4))
+    sns.histplot(df[col], kde=True, bins=30)
+    plt.title(f"Distribution of {col}")
+    plt.show()
+
+    # Boxplot for outlier detection
+    plt.figure(figsize=(6,4))
+    sns.boxplot(x=df[col])
+    plt.title(f"Boxplot of {col}")
+    plt.show()
+
+# 5. Value Counts for Categorical Columns
+
+categorical_cols = df.select_dtypes(include=["object", "category"]).columns
+
+for col in categorical_cols:
+    print(f"\n🔹 Value Counts for {col}:")
+    print(df[col].value_counts())
+    
+    plt.figure(figsize=(6,4))
+    sns.countplot(x=df[col])
+    plt.title(f"Countplot of {col}")
+    plt.xticks(rotation=45)
+    plt.show()
+
+# 6. Pairplot (relationships between features)
+
+if len(numeric_cols) > 1:
+    sns.pairplot(df[numeric_cols].dropna(), diag_kind="kde")
+    plt.suptitle("Pairplot of Numerical Features", y=1.02)
+    plt.show()
+
+# 7. Skewness & Kurtosis
+
+print("🔹 Skewness of Numeric Columns:")
+print(df.skew(numeric_only=True), "\n")
+
+print("🔹 Kurtosis of Numeric Columns:")
+print(df.kurtosis(numeric_only=True), "\n")
