@@ -1,0 +1,93 @@
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.stats.proportion import proportion_confint
+from statsmodels.stats.weightstats import DescrStatsW, CompareMeans
+
+sns.set(style="whitegrid")
+
+np.random.seed(42)
+n_a = 120
+n_b = 110
+mu_a, sigma_a = 50, 8    # mean revenue and std for A
+mu_b, sigma_b = 53, 9    # mean revenue and std for B
+revenue_a = np.random.normal(loc=mu_a, scale=sigma_a, size=n_a)
+revenue_b = np.random.normal(loc=mu_b, scale=sigma_b, size=n_b)
+
+conv_a = np.random.binomial(1, 0.12, size=n_a)  # 12% conversion
+conv_b = np.random.binomial(1, 0.16, size=n_b)  # 16% conversion
+
+df = pd.DataFrame({
+    'strategy': ['A']*n_a + ['B']*n_b,
+    'revenue': np.concatenate([revenue_a, revenue_b]),
+    'converted': np.concatenate([conv_a, conv_b])
+})
+
+
+plt.figure(figsize=(8,4))
+sns.histplot(revenue_a, kde=True, label='A', stat='density')
+sns.histplot(revenue_b, kde=True, label='B', stat='density', alpha=0.6)
+plt.legend()
+plt.title('Revenue Distribution: Strategy A vs B')
+plt.xlabel('Revenue')
+plt.show()
+
+plt.figure(figsize=(6,4))
+sns.boxplot(x='strategy', y='revenue', data=df)
+plt.title('Boxplot: Revenue by Strategy')
+plt.show()
+
+
+print("Shapiro A:", stats.shapiro(revenue_a).statistic, stats.shapiro(revenue_a).pvalue)
+print("Shapiro B:", stats.shapiro(revenue_b).statistic, stats.shapiro(revenue_b).pvalue)
+
+lev_stat, lev_p = stats.levene(revenue_a, revenue_b)
+print(f"Levene test for equal variances: stat={lev_stat:.4f}, p={lev_p:.4f}")
+
+# Use Welch's t-test (does not assume equal variances) by default: stats.ttest_ind(..., equal_var=False)
+t_stat, p_val = stats.ttest_ind(revenue_a, revenue_b, equal_var=False)
+print(f"Welch's t-test: t = {t_stat:.4f}, p = {p_val:.4f}")
+
+# 95% CI for difference in means (using statsmodels CompareMeans)
+descA = DescrStatsW(revenue_a)
+descB = DescrStatsW(revenue_b)
+cm = CompareMeans(descA, descB)
+ci_low, ci_high = cm.tconfint_diff(usevar='unequal')  # Welch
+print(f"95% CI for mean difference (A - B): [{ci_low:.4f}, {ci_high:.4f}]")
+
+
+# Simulate paired example (pre/post same customers)
+# pre = np.random.normal(40,7,100); post = pre + np.random.normal(3,5,100)
+# t_stat_p, p_val_p = stats.ttest_rel(pre, post)
+# print("Paired t-test:", t_stat_p, p_val_p)
+
+# Contingency table
+cont_table = pd.crosstab(df['strategy'], df['converted'])
+print("\nContingency table (strategy x converted):\n", cont_table)
+
+chi2, chi_p, dof, expected = stats.chi2_contingency(cont_table)
+print(f"Chi-square test: chi2={chi2:.4f}, p={chi_p:.4f}, dof={dof}")
+print("Expected frequencies:\n", expected)
+
+# 95% CI for proportions (strategy A and B)
+success_a = cont_table.loc['A', 1]
+success_b = cont_table.loc['B', 1]
+ci_a_low, ci_a_high = proportion_confint(success_a, n_a, method='wilson')
+ci_b_low, ci_b_high = proportion_confint(success_b, n_b, method='wilson')
+print(f"Strategy A conversion (prop): {success_a}/{n_a} -> 95% CI: [{ci_a_low:.3f}, {ci_a_high:.3f}]")
+print(f"Strategy B conversion (prop): {success_b}/{n_b} -> 95% CI: [{ci_b_low:.3f}, {ci_b_high:.3f}]")
+
+# Optional: difference in proportions z-test
+count = np.array([success_a, success_b])
+nobs = np.array([n_a, n_b])
+stat_z, pval_z = stats.proportions_ztest(count, nobs)
+print(f"Z-test for proportions diff: z={stat_z:.4f}, p={pval_z:.4f}")
+
+print("\n=== Summary ===")
+print(f"Mean revenue A: {revenue_a.mean():.3f} (sd {revenue_a.std(ddof=1):.3f}), n={n_a}")
+print(f"Mean revenue B: {revenue_b.mean():.3f} (sd {revenue_b.std(ddof=1):.3f}), n={n_b}")
+print(f"Revenue mean difference (A - B): {revenue_a.mean()-revenue_b.mean():.3f}")
+print(f"Welch t-test p-value: {p_val:.4f} -> " + ("Reject H0 (significant)" if p_val < 0.05 else "Fail to reject H0 (not significant)"))
+print(f"Chi-square p-value (conversion vs strategy): {chi_p:.4f}")
